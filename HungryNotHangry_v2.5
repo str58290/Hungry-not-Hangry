@@ -1,0 +1,661 @@
+var token = "";     // 1. FILL IN YOUR OWN TOKEN
+var telegramUrl = "https://api.telegram.org/bot" + token;
+var webAppUrl = ""; // 2. FILL IN YOUR GOOGLE WEB APP ADDRESS
+var ssId = "";      // 3. FILL IN THE ID OF YOUR SPREADSHEET
+var adminID = "";   // 4. Fill in your own Telegram ID for debugging
+
+//Sheets column numbers:
+var result_column = 0;
+var district_column = 3;
+var location_column = 4;
+var price_column = 5;
+var cuisine_column = 6;
+var halal_column = 8;
+
+//Telegram commands to be received by ChatBot://
+var commands = {
+  "/start": "🧞  Hungry not Hangry (v2.5)! 🍽\n" +
+            "____________________________________\n" +
+            "📲  <b>Send us your preferences strictly like this:</b>\n" +
+            "<i>[Put \'NIL\' where no preference]</i>\n\n" +
+            "<code>DISTRICT PRICE CUISINE HALAL</code>\n\n" +
+            "🧑‍💻 <b>E.g.</b>\n" +
+            "✅ N C SG NIL\n" +
+            "<b>Means: </b><i>North, Cheap, Singapore, No pref on Halal</i>\n" +
+            "✅ E S KOR YES\n" +
+            "<b>Means: </b><i>East, Special Ocassion Only, Korean, Halal</i>\n" +
+            "✅ NIL NIL NIL NIL\n" +
+            "<b>Means: </b><i>Anything Anywhere!</i>\n" +
+            "____________________________________\n" +
+            "👉  <b><u>/howuse</u></b>: <i>For acronyms of your preferences</i>\n" +
+            "👉  <b><u>/contact</u></b>: <i>To contact bot developer</i>\n" +
+            "👉  <b><u>/about</u></b>: <i>To learn more about bot developer</i>",
+            
+  "/howuse":  "1️⃣: 📍<b>(DISTRICT)</b>📍\n" +
+              "<code>N</code>: North\n" +
+              "<code>S</code>: South\n" +
+              "<code>E</code>: East\n" +
+              "<code>W</code>: West\n" +
+              "<code>C</code>: Central\n\n" +
+
+              "<code>ACC</code>: Commonly found around SG\n\n" +
+
+              "2️⃣: 💸<b>(PRICE)</b>💸\n" +
+              "<code>C</code>: Cheap [$5~]\n" +
+              "<code>B</code>: Budget [$7~$12]\n" +
+              "<code>A</code>: Affordable [$12~$17]\n" +
+              "<code>P</code>: Pricey [$17~$23]\n" +
+              "<code>S</code>: Special-occasions only [>$23]\n\n" +
+
+              "3️⃣: 🌽<b>(CUISINE)</b>🍤\n" +
+              "<code>SG</code>:   Singaporean\n" +
+              "<code>CHI</code>:  Chinese\n" +
+              "<code>INDI</code>: Indian\n" +
+              "<code>JAP</code>:  Japanese\n" +
+              "<code>KOR</code>:  Korean\n" +
+              "<code>WES</code>:  Western\n\n" +
+
+              "<code>BRU</code>:  Brunch\n" +
+              "<code>BURG</code>: Burger\n" +
+              "<code>FRE</code>:  French\n" +
+              "<code>GER</code>:  German\n" +
+              "<code>INDO</code>: Indonesian\n" +
+              "<code>ITA</code>:  Italian\n" +
+              "<code>MEDI</code>: Mediterranean\n" +
+              "<code>SPA</code>:  Spanish\n" +
+              "<code>SWE</code>:  Swedish\n" +
+              "<code>SWI</code>:  Swiss\n" +
+              "<code>THAI</code>: Thai\n" +
+              "<code>TUR</code>:  Turkish\n\n" +
+
+              "4️⃣: 🤲<b>(Halal)</b>🤲\n" +
+              "<code>YES</code>: YES Halal\n" +
+              "<code>NO</code>:  NO Halal\n\n" +
+              
+              "<i>[Put \'NIL\' where no preference]</i>\n" +
+
+              "<b>DISTRICT PRICE CUISINE HALAL</b>\n\n",
+
+  "/contact": "📧 <b>Email us the error or problem you have encountered! 📧</b>\n" +
+              "<i>Or if you simply want to get in touch!</i>\n" +
+              "<a>" + "Copy email: merelyjosephacc@gmail.com" + "</a>",
+
+  "/about" :  "🤖 <b><u> About bot </u></b>\n" +
+              "This bot was made to replace the trouble and frustration that stems from the silly fact that you just do not know where or what to eat!\n\n" +
+
+              "This project was inspired and dedicated for me (T) and my partner (M), after the countless hangry quarrels we have had not knowing where and what to eat. Spin-wheels and decision-making scissor-paper-stone just don’t seem to make the cut for us, and as such, “Hungry not Hangry” was born! Cheers to you my amazing, beautiful, pretty and food-loving girlfriend! Love you!\n\n" +
+
+              "Instead of putting so much thought to where and what to eat, conserve that energy, instead, to judging the food you are about to eat!\n\n" +
+
+              "🙇‍♂️ <b><u> About me </u></b>\n" +
+              "Hello! I am T and am a Singapore Polytechnic graduate from the Diploma in Computer Engineering. I love taking on projects relating to tech, that will help bring convenience to our daily lives. Drop me a mail if you\’re interested in doing a project together! Cheers 🍻"
+};
+
+var districts = [
+  'N',
+  'S',
+  'E',
+  'W',
+  'C',
+  'ACC'
+];
+
+var prices = [
+  'C',
+  'B',
+  'A',
+  'P',
+  'S'
+];
+
+var cuisines = [
+  'SG',
+  'CHI',
+  'JAP',
+  'KOR',
+  'WES',
+  'INDI',
+  'THAI',
+  'SWE',
+  'ITA',
+  'INDO',
+  'TUR',
+  'BRU',
+  'BURG',
+  'SWI',
+  'GER',
+  'SPA',
+  'MEDI',
+  'FRE'
+];
+
+var halals = [
+  'YES',
+  'NO'
+];
+
+var match_array_index_to_column_num = [
+  district_column, //Index [0] of our usr_inp arrays is for the district column
+  price_column, //Index [1] of our usr_inp arrays is for the price column
+  cuisine_column, //Index [2] of our usr_inp arrays is for the cuisine column
+  halal_column //Index [3] of our usr_inp arrays is for the halal column
+];
+
+var possible_usr_pref = [ // Contains all the preferences with their options stored in an array of their own (preferences are the inner arrays). 'possible_usr_pref' is the outer array.
+  districts,
+  prices,
+  cuisines,
+  halals
+];
+
+//Telegram messages to be sent by ChatBot://
+var send_Message = "NIL"; // Initialize
+
+// Telegram specific functions:
+function setWebhook(){ // Function to set webhook with Telegram, so WebApp will be notified of any updates of user input from ChatBot
+  var url = telegramUrl + "/setWebhook?url=" + webAppUrl;
+  var response = UrlFetchApp.fetch(url);
+  Logger.log(response.getContentText());
+}
+
+function sendText(id, text) {
+  // For debugging:
+  // text = "Based on the preferences, we recommend: \n<b><i>" + "recommended_place" + "</i></b>";
+  // id = adminID;
+  var response = UrlFetchApp.fetch(telegramUrl + "/sendMessage?chat_id=" + id + "&text=" + encodeURIComponent(text) + "&parse_mode=HTML");
+  Logger.log(response.getContentText());
+}
+
+function getMe(){
+  var response = UrlFetchApp.fetch(telegramUrl + "/getMe");
+  return ContentService.createTextOutput("200").setMimeType(ContentService.MimeType.TEXT);
+  Logger.log(response.getContentText());
+}
+// End of Telegram specific functions.
+
+// The 'main' functions:
+function doGet(e){ // Function is a default for Script. Runs when someone is running a GET request for the Web App.
+  //   try {
+  //     // Your code logic here
+
+  //     // Assuming you want to send a 200 response in the middle of the code
+  //     // Send a response with status 200
+  //   return ContentService.createTextOutput("200").setMimeType(ContentService.MimeType.TEXT);
+  //   } catch (e) {
+  //     // Error handling logic here
+
+  //     // Return error response with appropriate HTTP status code
+  //     return ContentService.createTextOutput("200").setMimeType(ContentService.MimeType.TEXT).setStatusCode(200); // Set the desired error HTTP status code
+  // }
+}
+
+function doPost(e){ // Function is a default for Script. Runs when someone is running a POST request to the Web App (in our case it will be Telegram's webhook. Variable 'e' is the POST object/data.
+  try{
+    // Section 1: Getting contents of user
+    var contents = JSON.parse(e.postData.contents);     // The data that we want from the POST data is in JSON format, and it is in the POST data's 'postData > contents' object.
+    
+    if (contents.message) { // Check if 'contents.message' object exists{
+      var text = contents.message.text;                   // This is the user's message input to our bot
+      var id = contents.message.from.id;                  // This is the user's tele ID
+      var first_name = contents.message.from.first_name;  // This is the user's first name
+
+      var total_preferences = 4; 
+      // Section 1 END
+
+      // For debugging:
+      //id = adminID;
+      //text = "S NIL NIL NIL"; //"N C SG NIL NIL NIL NIL NIL";
+      // End of debugging
+
+      // Section 2: Check if what user typed is a command or their preference
+      if (text[0] == '/'){ // If what user typed is a command...
+        if (typeof commands[(text.toLowerCase())] == 'undefined'){ // If the command the user typed is not found...
+          send_Message = "❌  Command not found  💬";
+        }
+        else{ // Else, pass the command the user typed to the 'commands' dictionary variable
+          send_Message = commands[(text.toLowerCase())];
+        }
+      }
+
+      else{ // Else, what the user typed should be their preference
+        var split_usr_pref = [];
+
+        split_usr_pref = split_preferences(text); // Split up the user input to individual indexes of 'split_usr_pref' array variable
+
+        split_usr_pref = all_pref_upper_case(split_usr_pref); // Make all of user's input upper case
+
+        if(split_usr_pref.length != total_preferences){ // Make sure that users input exactly 4
+          send_Message =  "❗️Please enter all/only <u><b>4</b></u> preferences\n" +
+                          "👉<i>Put <u><b>NIL</b></u> where no preference</i>👈" +
+                          "💬\n\n<u><b>You have entered: " + split_usr_pref.length + "</b></u>";
+        }
+
+        else if (split_usr_pref.length == total_preferences){
+          // If there is a NIL in our user input, enter the replacing NIL function. Else, dont waste time.
+          sendText(id, "🔎 Searching...\n<i>We'll notify you!</i>");
+          Logger.log("Ran check 1");
+
+          for(var i = 0; i < split_usr_pref.length; i++){
+            if(split_usr_pref[i] == "NIL"){
+              split_usr_pref = replace_nil(split_usr_pref); // We need to replace the NIL preferences of the user for a randomly choosen option of the preference
+              break;
+            }
+          }
+          Logger.log("Ran check 2");
+          
+          var halal_print = "."
+
+          // Printing of halal as in "YES" or "NO":
+          if(split_usr_pref[3] == 'HALAL'){
+            halal_print = "YES";
+          }
+          else if (split_usr_pref[3] == ""){
+            halal_print = "NO";
+          }
+
+          sendText(id, "📲 Option picked: " + split_usr_pref[0] + " " + split_usr_pref[1] + " " + split_usr_pref[2] + " " + halal_print);
+
+          var recommended_place = bot_rec_algo(split_usr_pref); // Returned is an array. [0]: Successful finding one? [1]: Result string.
+
+          if(recommended_place[0] == "0"){
+            send_Message = recommended_place[1];
+          }
+          else if(recommended_place[0] == 1){
+            send_Message =  "<b>Based on the preferences, we recommend:</b>\n" +
+                            "🥘 <i>" + recommended_place[1] + "</i>\n" +
+                            "🔎 <a href=\"https://www.google.com/search?q=" + recommended_place[1] + "\">Details of venue</a>";
+          }
+        }
+
+        else{
+          send_Message =  "ERROR1\n" +
+                          "Inputted: " + split_usr_pref;
+        }
+      }
+
+      run_time = 0;
+      Logger.log("Ran check 3");
+      sendText(id, send_Message);
+      Logger.log("Ran check 4");
+    }
+
+    else{
+      // Handle the case when 'contents.message' is undefined
+      sendText(adminID, "Error: Contents empty");
+    }
+  } 
+  catch(e){
+    sendText(adminID, "Error: "+ e.message);
+  }
+}
+// End of 'main' functions.
+
+// User-defined functions:
+// Function used to split user input, using spacing as the deliminator
+function split_preferences(input){
+  //For debugging:
+  // input = "E B INDI HALAL";
+  //var user_pref = input.toUpperCase();
+  var user_pref = input.split(" ");
+
+  if(user_pref[3] == "YES"){
+    user_pref[3] = "HALAL";
+  }
+  
+  else if(user_pref[3] == "NO"){
+    user_pref[3] = "";
+  }
+
+  //Logger.log(user_pref[1]);
+  return user_pref; // User pref is now an array, each index containing a user preference. 0: Area. 1: Price. 2: Cuisine. 3: Halal 
+}
+
+// Function used to search and find for recommendation, based on preferences, through Google sheets
+function bot_rec_algo(usr_inp){ // Returns an array: [0]: Successful finding one (0: No. 1: Yes)?  [1]: Result string.
+  // For debugging:
+  // var usr_inp = ["C", "P", "BURG", "NIL"];
+
+  var district = usr_inp[0]; 
+  var price = usr_inp[1];
+  var cuisine = usr_inp[2];
+  var halal = usr_inp[3];
+
+  var sheet = SpreadsheetApp.openById(ssId).getActiveSheet();//SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues(); // Data needs to be iterated through as it is returned in terms of rows (i.e. row 0 = data[0])
+
+  var results = [];
+  var result = "NIL"; // Variable to hold the recommendation result
+  var locations = [];
+  var location = "NIL"; // Variable to hold the recommendation location's result
+
+  // Go through the process of finding a place for the user based on their preference (may need to change to better searching algo in the future)
+  for (var i = 0; i < data.length; i++){ // Index starts from 1 as 0 contain the column names
+    //Logger.log("i: " + i);
+    
+    //r = getRandomNumber(1, data.length); // Index r to be used for getting of a random row
+
+    var row = data[i]; // Get a random row that may be what we need.
+    var squeezed_districts = row[district_column].split(", "); // An example of a one row with squeezed district is a row like that: "N, NE, E". Split them up and do the search through each splitted up district 
+
+    if (row[price_column] == price && row[cuisine_column] == cuisine && row[halal_column] == halal) {
+      if (squeezed_districts.length > 1){ // If there are more than 1 districts squeezed into one row.
+        for (var x = 0; x < squeezed_districts.length; x++)
+        {
+          if (squeezed_districts[x] == district){
+            results.push(row[result_column]); // Add all the possible results to results variable
+            locations.push(row[location_column]); // Add all the possible results to results variable
+          }
+        }
+      }
+
+      else if (row[district_column] == district){ // Else if there is only 1 district in 1 row, e.g.: "N"
+        results.push(row[result_column]); // Add all the possible results to results variable
+        locations.push(row[location_column]); // Add all the possible results to results variable
+      } 
+    }
+  }
+
+  // If no results were gotten from their preferences
+  if (results.length == 0){
+    result = "❌  No records in our database. Try again with other preferences.  😥"
+    return ["0", result];
+  }
+
+  // Else if there is only 1:
+  else if (results.length == 1){
+    result = results[0];
+    location = locations[0];
+
+    if (location.length == 0){ // ACC, in the sheets is empty. So if the location is empty, we say "Anywhere near you".
+      location = "Anywhere near you";
+    }
+    return ["1", (result + " @ " + location)];
+  }
+
+  //Else (there are more than 1):
+  else{
+    var random = getRandomNumber(0, (results.length-1)); // Randomly choose 1 from the options
+
+    result = results[random];
+    location = locations[random];
+
+    if (location.length == 0){ // ACC, in the sheets is empty. So if the location is empty, we say "Anywhere near you".
+      location = "Anywhere near you";
+    }
+    return ["1", (result + " @ " + location)];
+  }
+
+  // var testing = ""
+  // Logger.log("Size of results: " + results.length);
+  // Logger.log("Random: " + random);
+  // Logger.log(result + " @ " + location);
+}
+
+// Function to take into consideration the number of NILs a user input and select a variation of preferences with a guranteed result using reverse engineering (i.e. we notice which are the preferences they put NIL for and give what we can to the bot_rec_algo to find for a result based on the preferences with no NIL, then from the result get the preference options of that result)
+function replace_nil(usr_inp){
+  //For debugging:
+  //usr_inp = ["NIL", "NIL", "NIL", "HALAL"];
+
+  Logger.log("usr_inp before: " + usr_inp);
+
+  var index_of_perf_w_nil = [];
+  var index_of_perf_w_NO_nil = []; // Meaning for that index, user has a particular preference
+
+  var sheet = SpreadsheetApp.openById(ssId).getActiveSheet();//SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues(); // Data needs to be iterated through as it is returned in terms of rows (i.e. row 0 = data[0])
+
+
+  for(var i = 0; i < usr_inp.length; i++){
+    if(usr_inp[i] == "NIL"){ // If we find that the preference is a NIL
+      index_of_perf_w_nil.push(i); // Save the index of where we found it to the array.
+    }
+
+    else if(usr_inp[i] != "NIL"){ // Else if we find that the user has an option for that preference
+      index_of_perf_w_NO_nil.push(i); // Save the index of where we found it to another array
+    }
+  }
+
+  if(index_of_perf_w_nil.length == 4){ // If we find that all of the preferences are NIL(ed) by the user, it means they dont mind anything anywhere
+    random_place_index = getRandomNumber(1, data.length);
+    var random_place = data[random_place_index];
+    
+    for(var i = 0; i < usr_inp.length; i++){
+      usr_inp[i] = random_place[match_array_index_to_column_num[i]];
+    }
+    
+    var squeezed_districts = usr_inp[0].split(", "); // Gotta split our District up as recall that for District column, some rows have joint districts like "N, NE, W" instead of just "N"...
+    if (squeezed_districts.length > 1){
+      var random_district_index = getRandomNumber(0, (squeezed_districts.length-1));
+      usr_inp[0] = squeezed_districts[random_district_index]; // Appoint only 1 random district to user input
+    } 
+    
+  }
+
+  else{
+    // Send user input into function to append the NIL portions...
+    usr_inp = ammend_nil(usr_inp, index_of_perf_w_NO_nil);
+  }
+  
+  Logger.log("usr_inp after: " + usr_inp);
+  return usr_inp;
+}
+
+function ammend_nil(usr_inp, where_not_nil) {
+  var ammended_usr_inp = [];
+
+  var sheet = SpreadsheetApp.openById(ssId).getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+
+  var filteredRows = data.filter(function(row) {
+    if(where_not_nil.length == 1){
+      var columnFilter_1 = row[match_array_index_to_column_num[where_not_nil[0]]]; // Get the column number of where the given preference is (i.e. if user gave "N NIL NIL NIL", then the column number to be fed here is the column number of district)
+      var columnFilter_1_value = usr_inp[where_not_nil[0]]; // Get what the user inputted for that preference
+      return columnFilter_1 == columnFilter_1_value; // Search through Sheets for a place where the user's inputted preference is used as filter and return the places that matches the filter (i.e. following the previous example, search for food places where district == N)
+    }
+
+    else if(where_not_nil.length == 2){
+      var columnFilter_1 = row[match_array_index_to_column_num[where_not_nil[0]]]; // See top as example
+      var columnFilter_1_value = usr_inp[where_not_nil[0]]; // See top as example
+
+      var columnFilter_2 = row[match_array_index_to_column_num[where_not_nil[1]]]; // See top as example
+      var columnFilter_2_value = usr_inp[where_not_nil[1]]; // See top as example
+
+      return columnFilter_1 == columnFilter_1_value && columnFilter_2 == columnFilter_2_value; // See top as example
+    }
+
+    else if(where_not_nil.length == 3){
+      var columnFilter_1 = row[match_array_index_to_column_num[where_not_nil[0]]]; // See top as example
+      var columnFilter_1_value = usr_inp[where_not_nil[0]]; // See top as example
+
+      var columnFilter_2 = row[match_array_index_to_column_num[where_not_nil[1]]]; // See top as example
+      var columnFilter_2_value = usr_inp[where_not_nil[1]]; // See top as example
+
+      var columnFilter_3 = row[match_array_index_to_column_num[where_not_nil[2]]]; // See top as example
+      var columnFilter_3_value = usr_inp[where_not_nil[2]]; // See top as example
+
+      return columnFilter_1 == columnFilter_1_value && columnFilter_2 == columnFilter_2_value && columnFilter_3 == columnFilter_3_value; // See top as example
+    }
+  });
+
+  if(filteredRows.length > 0){ // If we have a result from the filtered search
+    // Accessing the first matching row from the filteredRows array
+    for(var a = 1; a < filteredRows.length; a++){ // Start from a=1 as the first row in the Sheets is the column name, and we do not want that. We want column values...
+      Logger.log("Filtered finds: " + filteredRows[a][0]);
+      Logger.log("District: " + filteredRows[a][match_array_index_to_column_num[0]]);
+      Logger.log("Price: " + filteredRows[a][match_array_index_to_column_num[1]]);
+      Logger.log("Cuisine: " + filteredRows[a][match_array_index_to_column_num[2]]);
+      Logger.log("Halal: " + filteredRows[a][match_array_index_to_column_num[3]]);
+    }
+
+    // After finding our possible results, get a random one:
+    var random_index = getRandomNumber(0, (filteredRows.length-1));
+    Logger.log("random_index: " + random_index);
+
+    for(var a = 0; a < match_array_index_to_column_num.length; a++){
+      Logger.log("a: " + a);
+      ammended_usr_inp.push(filteredRows[random_index][match_array_index_to_column_num[a]])
+    }
+
+    var squeezed_districts = ammended_usr_inp[0].split(", "); // Gotta split our District up as recall that for District column, some rows have joint districts like "N, NE, W" instead of just "N"...
+    if (squeezed_districts.length > 1){ 
+      var random_district_index = getRandomNumber(0, (squeezed_districts.length-1));
+      ammended_usr_inp[0] = squeezed_districts[random_district_index];
+    }
+    
+  }
+  
+  else{ // Else if there is no possible result from the variation of preferences...
+    Logger.log("Not found");
+    ammended_usr_inp = ["Try a different set of preferences!", ".", ".", "."];
+  }
+
+  return ammended_usr_inp;
+}
+
+// Function to ensure/change all of user's preference to upper case:
+function all_pref_upper_case(usr_inp){
+  for (var i = 0; i < usr_inp.length; i++){
+    usr_inp[i] = usr_inp[i].toUpperCase();
+  }
+
+  return usr_inp;
+}
+
+// Function used to get a random number from range
+function getRandomNumber(min, max){
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+// End of user-defined functions.
+
+// function test(){
+//   var test_var = ["C", "B", "WES", "NIL"];
+//   Logger.log("Before: " + test_var);
+//   test_var = replace_nil(test_var);
+//   Logger.log("After: " + test_var);
+// }
+
+
+// POSSIBLE FUTURE UPDATE TO MAKE ONCE DATABASE HAS GROWN //
+// ________________________________________________________________________________________________________________________________//
+
+// 1. Functions (replace_nil(usr_inp) and not_anything(usr_inp)) to replace NIL-replacing machanism once database (Sheets) grow to about 2000 or till every possible variation of preferences have a result:
+
+/*
+// Function to replace user's NIL with 'random' values:
+// 2 Sections to this function:
+// Section 1: Anything lah!
+// If all of user's preference is NIL, it indicates that user just wants a random place. If that is the case, we search through the Sheets for a random place, then  upon getting a result, replace all of the user's NIL preferences with the result's corresponding preferences (i.e. reverse engineering to get a for-sure-result-guranteed's preference)
+// Section 2: Not anything lah...
+// If only some of the user's preference is NIL, replace the NILs with a randomly chosen option of that pref, then check if it exists. Do that for 100 (an arbitrary number) or till you have found a that the set of chosen preferences gets a result. The arbitrary number has to be kept low (though not too low) as if our algo takes too long and not send any response to Telegram's webhook, it will assume we did not receive its message, and resend us the message, causing our algo to run again and then the same thing will repeat again... So yea keep that in mind.
+function replace_nil(usr_inp){
+  // For debugging: 
+  usr_inp = ["NIL", "NIL", "NIL", "YES"];
+  
+  Logger.log("usr_inp before: " + usr_inp);
+
+  var anything_flag = true; // If all of the user's preference is NIL, it means they really just want a random food venue, meaning, in a Singlish accent: "~Anything lah~"
+
+  for(var i = 0; i < usr_inp.length; i++){
+    if(usr_inp[i] != "NIL"){ // The moment we find that one preference is not a NIL, break!
+      anything_flag = false;
+      break;
+    }
+  }
+
+   Logger.log("anything_flag: " + anything_flag);
+
+  // Section 1: Anything lah!
+  if(anything_flag){
+    var sheet = SpreadsheetApp.openById(ssId).getActiveSheet();//SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = sheet.getDataRange().getValues(); // Data needs to be iterated through as it is returned in terms of rows (i.e. row 0 = data[0])
+
+    random_place_index = getRandomNumber(1, data.length);
+
+    var random_place = data[random_place_index];
+    
+    usr_inp = random_place[district_column]+ " " + random_place[price_column] + " "+ random_place[cuisine_column] + " " + random_place[halal_column];
+  }
+
+  // Section 2: Not anything...
+  else if (anything_flag == false){
+
+
+  }
+
+  Logger.log("usr_inp after: " + usr_inp);
+  return usr_inp;
+}
+
+// Function to replace user's NIL with 'random' values, and from there keep generating a variation of preferences, until we find one for-sure-result variation of preferences or till end of loop.
+function not_anything(usr_inp){
+  Logger.log("Before: " + usr_inp);
+
+  var sheet = SpreadsheetApp.openById(ssId).getActiveSheet();//SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues(); // Data needs to be iterated through as it is returned in terms of rows (i.e. row 0 = data[0])
+
+  var nil_indexes = []; // Array to contain the indexes with NIL in them.
+  var found = 0;
+
+  var total_num_poss_outcomes = 1; // To store the total number of possible from all the combinations of our preferences
+
+  // This loop does: Fill up nil_indexes variable with the indexes with NIL. To be used later in loop
+  for (var i = 0; i < usr_inp.length; i++){
+    if(usr_inp[i] == "NIL"){
+      nil_indexes.push(i);
+    }
+  }
+
+  // This loop does: Get the total number of possible mixes among the preferences that have NIL
+  for(var a = 0; a < nil_indexes.length; a++){
+    total_num_poss_outcomes *= possible_usr_pref[nil_indexes[a]].length;
+  }
+  Logger.log("total_num_poss_outcomes = " + total_num_poss_outcomes);
+
+
+  // This loop does: 
+  // First: Replace each individual NIL of the user's input with a random option of that preference to generate a proper variation of preferences
+  // Second: Search through the database to see if there is a result with that variation of preferences. If yes, break out of loop as we have found what we need, else, continue to end of loop which is "total_num_poss_outcomes+(total_num_poss_outcomes/2)". We do that equation as we would like to search for as long as (if needed) the total number of possible variations that we can repalce the NILs with. (e.g. if we have a user preference: N A SG NIL, the total number of possible variations to search through will then be 2 as it can either be: N A SG YES or N A SG NO). We then add multiply (total_num_poss_outcomes) by 2, arbitrary, as, we have to take into consideration that the randomly generated outcomes may have been repeated before (i.e. first loop we generated:  N A SG YES, but in the second loop we also generated  N A SG YES randomly), so as to widen the possibilities (as much as possible) to different variations out of all the possibilities. I have tried making an array to store previously generated variations, then compare the current variation to the previous ones, and if current variation was found in previously generated ones, then regenerate, but the problem is, the algorithm's run time is too long, causing the Telebot to resend the user's preference again as the Telegram webhook thought we did not receive their message: This will cause a big problem as the algo will run again in another, and the same problem will occur again, causing our users to be spammed (endlessly) after a result is found from that algo in each thread.
+  for(var z = 0; z < total_num_poss_outcomes*2; z++){
+    Logger.log("Try no. " + z);
+
+    // This loop does: Replace each NIL in user's input with randomly selected value of that preference:
+    for(var i = 0; i < nil_indexes.length; i++){ //[0]: Districts. [1]: Prices. [2]: Cuisines. [3]: Halal
+      //The user input with NIL for their preference, we randomly select for them.
+      Logger.log("Loop i: " + i);
+      var max = possible_usr_pref[nil_indexes[i]].length; // Get the total number of options in that preference to be fed as 'max' to random num generator
+      var index = getRandomNumber(0, max-1); // Get a random index from the random number
+      usr_inp[nil_indexes[i]] = possible_usr_pref[nil_indexes[i]][index]; // Replace the NIL for a randomly selected option in the preference
+
+      if(nil_indexes[i] == 3){ // If we are at the HALAL section, replace YES and NO with "HALAL" and "" respectively
+        if (usr_inp[nil_indexes[i]] == "YES"){
+          usr_inp[nil_indexes[i]] = "HALAL";
+        }
+
+        else if(usr_inp[nil_indexes[i]] == "NO"){
+          usr_inp[nil_indexes[i]] = "";
+        }
+      }
+    }
+
+    Logger.log("Trying with: " + usr_inp);
+
+    // Then we send this variation of generated preferences to the bot_rec_algo() to see if there is a result for this variation of preferences.
+    found = bot_rec_algo(usr_inp);
+
+    if(found[0] == "1"){ // If we send our replaced NIL and there is a result for that set of preferences, break out out infinite loop. We have found what we need.
+      Logger.log("FOUND: " + usr_inp);
+      break;
+    }
+
+    else{ // Else (if we did not get a result), replace the initial NILs with their NILs and repeat cycle of randomly choosing again.
+      for(var x = 0; x < nil_indexes.length; x++){
+        usr_inp[nil_indexes[x]] = "NIL"; 
+      }
+    }
+  }
+  
+  Logger.log("After: " + usr_inp);
+  Logger.log("Found at " + z + " tries.");
+  return usr_inp;
+}
+*/
